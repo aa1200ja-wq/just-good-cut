@@ -1,0 +1,93 @@
+name: CI and Windows Build
+# v3: global library, subtitle preview, Jianying duration safety
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r apps/server/requirements.txt pytest
+      - name: Run tests
+        env:
+          PYTHONPATH: apps/server
+        run: |
+          python -m compileall -q apps/server
+          node --check apps/server/app/web/api.js
+          node --check apps/server/app/web/state.js
+          node --check apps/server/app/web/scenes.js
+          node --check apps/server/app/web/library.js
+          node --check apps/server/app/web/settings.js
+          node --check apps/server/app/web/main.js
+          pytest -q apps/server/tests
+
+  windows-package:
+    needs: test
+    runs-on: windows-latest
+    if: github.event_name != 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r apps/server/requirements.txt pyinstaller pytest
+      - name: Run tests on Windows
+        shell: pwsh
+        env:
+          PYTHONPATH: apps/server
+        run: python -m pytest -q apps/server/tests
+      - name: Build portable Windows app
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --clean --windowed --name BrollWorkflow `
+            --paths apps/server `
+            --add-data "apps/server/app/web;app/web" `
+            --collect-all imageio_ffmpeg `
+            --collect-all pyJianYingDraft `
+            run_local.py
+          Copy-Item README.md dist\BrollWorkflow\README.md
+      - name: Smoke test portable EXE
+        shell: pwsh
+        run: |
+          $proc = Start-Process -FilePath "dist\BrollWorkflow\BrollWorkflow.exe" -PassThru
+          $ok = $false
+          for ($i = 0; $i -lt 20; $i++) {
+            Start-Sleep -Seconds 1
+            try {
+              $response = Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:8765/api/health" -TimeoutSec 2
+              if ($response.StatusCode -eq 200) {
+                $ok = $true
+                break
+              }
+            } catch {}
+            if ($proc.HasExited) { break }
+          }
+          if (-not $ok) {
+            if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force }
+            throw "Portable EXE failed to start local server"
+          }
+          Stop-Process -Id $proc.Id -Force
+      - name: Package portable ZIP
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist\BrollWorkflow\* -DestinationPath BrollWorkflow-Windows.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BrollWorkflow-Windows
+          path: BrollWorkflow-Windows.zip
+          retention-days: 30
