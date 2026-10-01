@@ -11,15 +11,10 @@
     <aside class="sidebar">
       <div class="brand">
         <strong>揪好剪</strong>
-        <small>旁白 → 素材 → 直接成片</small>
+        <small>一步一步，從旁白到成片</small>
       </div>
-      <div class="side-menu">
-        <button id="side-search-external" class="side-action">搜尋外部素材</button>
-        <button id="side-library" class="side-action">素材庫</button>
-        <button id="side-upload" class="side-action">加入本機素材</button>
-        <input id="global-upload" type="file" accept="video/*,image/*" multiple hidden />
-      </div>
-      <details id="project-manager" class="project-manager">
+
+      <details id="project-manager" class="project-manager" open>
         <summary id="project-manager-summary">專案管理</summary>
         <div class="create-project">
           <input id="new-project-name" placeholder="新專案名稱" />
@@ -38,14 +33,6 @@
         <div>
           <h1 id="project-title">請建立專案</h1>
           <small id="project-meta"></small>
-          <div class="format-row">
-            <label>畫面比例
-              <select id="project-format">
-                <option value="16:9">16:9 橫式</option>
-                <option value="9:16">9:16 直式</option>
-              </select>
-            </label>
-          </div>
         </div>
         <nav class="tabs">
           <button class="tab active" data-tab="work">製作</button>
@@ -55,97 +42,189 @@
       </header>
 
       <section id="work-panel" class="tab-panel">
-        <div class="panel">
-          <div class="panel-head"><h2>1. 旁白腳本</h2><span id="scene-count"></span></div>
-          <textarea id="script" class="large" placeholder="一次貼上完整旁白稿"></textarea>
-          <button id="split-script">依標點切成 Scene</button>
-        </div>
+        <nav class="wizard-nav" aria-label="製作步驟">
+          <button class="wizard-step active" data-step-target="1"><span>1</span>腳本</button>
+          <button class="wizard-step" data-step-target="2"><span>2</span>配音</button>
+          <button class="wizard-step" data-step-target="3"><span>3</span>素材</button>
+          <button class="wizard-step" data-step-target="4"><span>4</span>預覽剪輯</button>
+          <button class="wizard-step" data-step-target="5"><span>5</span>輸出</button>
+        </nav>
 
-        <div class="panel">
-          <h2>2. 產生旁白＋時間碼</h2>
-          <div class="grid-5">
-            <label>聲音
-              <select id="voice">
-                <option value="zh-TW-YunJheNeural">台灣男聲｜雲哲</option>
-                <option value="zh-TW-HsiaoChenNeural">台灣女聲｜曉臻</option>
-                <option value="zh-TW-HsiaoYuNeural">台灣女聲｜曉雨</option>
-              </select>
-            </label>
-            <label>語速<input id="rate" value="+0%" /></label>
-            <label>音調<input id="pitch" value="+0Hz" /></label>
-            <label>節奏
-              <select id="rhythm">
-                <option value="natural">自然</option>
-                <option value="fast">快切</option>
-              </select>
-            </label>
-            <button id="make-tts" class="primary">產生旁白＋時間碼</button>
+        <section class="workflow-step" data-step="1">
+          <div class="step-heading">
+            <div><span class="eyebrow">STEP 1</span><h2>貼上旁白腳本</h2></div>
+            <span id="scene-count" class="step-meta"></span>
           </div>
-          <p class="hint">快切模式會去掉每句旁白前後多餘靜音，短句會更緊湊；不會截掉說話內容。</p>
-        </div>
+          <div class="panel focus-panel">
+            <div class="format-row">
+              <label>影片比例
+                <select id="project-format">
+                  <option value="16:9">16:9 橫式</option>
+                  <option value="9:16">9:16 直式</option>
+                </select>
+              </label>
+            </div>
+            <textarea id="script" class="script-input" placeholder="把完整旁白貼在這裡。揪好剪會依標點自動切成 Scene。"></textarea>
+            <div class="step-actions end">
+              <button id="split-script" class="primary">切成 Scene，下一步</button>
+            </div>
+          </div>
+        </section>
 
-        <div class="panel">
-          <h2>3. 批次搜尋素材</h2>
-          <textarea id="bulk-queries" class="medium"
-            placeholder="每行一組搜尋詞，依序對應 Scene 1、2、3……"></textarea>
-          <div class="toolbar wrap">
-            <label class="check"><input type="checkbox" value="pexels" class="source" checked /> Pexels</label>
-            <label class="check"><input type="checkbox" value="pixabay" class="source" checked /> Pixabay</label>
-            <label class="check"><input type="checkbox" value="wikimedia" class="source" checked /> Wikimedia</label>
-            <button id="search-all" class="primary">套用並搜尋全部素材</button>
+        <section class="workflow-step hidden" data-step="2">
+          <div class="step-heading">
+            <div><span class="eyebrow">STEP 2</span><h2>選擇配音</h2></div>
+            <span class="step-meta">產生旁白後會自動建立時間碼</span>
           </div>
-        </div>
+          <div class="panel focus-panel">
+            <div class="voice-grid">
+              <label>聲音
+                <select id="voice">
+                  <option value="zh-TW-YunJheNeural">台灣男聲｜雲哲</option>
+                  <option value="zh-TW-HsiaoChenNeural">台灣女聲｜曉臻</option>
+                  <option value="zh-TW-HsiaoYuNeural">台灣女聲｜曉雨</option>
+                </select>
+              </label>
+              <label>語速<input id="rate" value="+0%" /></label>
+              <label>音調<input id="pitch" value="+0Hz" /></label>
+              <label>節奏
+                <select id="rhythm">
+                  <option value="natural">自然</option>
+                  <option value="fast">快切</option>
+                </select>
+              </label>
+            </div>
+            <p class="hint">快切只會去掉句子前後多餘靜音，不會截掉說話內容。</p>
+            <div class="step-actions">
+              <button class="ghost" data-go-step="1">上一步</button>
+              <button id="make-tts" class="primary">產生旁白，下一步</button>
+            </div>
+          </div>
+        </section>
 
-        <div class="panel">
-          <div class="panel-head">
-            <h2>4. Scene 與候選素材</h2>
-            <span>每幕可重搜、上傳或改用素材庫</span>
+        <section class="workflow-step hidden" data-step="3">
+          <div class="step-heading">
+            <div><span class="eyebrow">STEP 3</span><h2>選擇每一幕素材</h2></div>
+            <span class="step-meta">搜尋、素材庫、本機素材都在這一步完成</span>
           </div>
-          <div id="scene-list"></div>
-        </div>
 
-        <div class="panel">
-          <div class="panel-head">
-            <h2>5. 成片編輯</h2>
-            <span>只保留最常用的調整</span>
+          <div class="panel compact-panel">
+            <textarea id="bulk-queries" class="medium"
+              placeholder="可選：每行一組搜尋詞，依序對應 Scene 1、2、3……"></textarea>
+            <div class="toolbar wrap">
+              <label class="check"><input type="checkbox" value="pexels" class="source" checked /> Pexels</label>
+              <label class="check"><input type="checkbox" value="pixabay" class="source" checked /> Pixabay</label>
+              <label class="check"><input type="checkbox" value="wikimedia" class="source" checked /> Wikimedia</label>
+              <button id="search-all" class="primary">批次搜尋素材</button>
+              <button id="side-search-external" class="ghost">重新搜尋外部素材</button>
+              <label class="button-link ghost">加入本機素材
+                <input id="global-upload" type="file" accept="video/*,image/*" multiple hidden />
+              </label>
+            </div>
           </div>
-          <div id="edit-timeline" class="edit-timeline"></div>
-          <div class="bgm-controls">
-            <label class="button-link ghost">加入／更換 BGM
-              <input id="bgm-upload" type="file" accept="audio/*" hidden />
-            </label>
-            <label class="bgm-volume">BGM 音量
-              <input id="bgm-volume" type="range" min="0" max="100" step="1" value="18" />
-              <span id="bgm-volume-value">18%</span>
-            </label>
-            <label class="check">
-              <input id="bgm-ducking" type="checkbox" checked />
-              旁白出現時自動降低 BGM
-            </label>
-            <button id="remove-bgm" class="ghost">移除 BGM</button>
-          </div>
-          <audio id="bgm-player" class="bgm-player hidden" controls preload="metadata"></audio>
-          <p id="bgm-status" class="hint">尚未加入 BGM</p>
-        </div>
 
-        <div class="panel">
-          <h2>6. 輸出</h2>
-          <div class="toolbar wrap">
-            <button id="preflight-check">輸出前檢查</button>
-            <button id="make-preview">產生粗剪預覽</button>
-            <a id="open-preview" class="button-link disabled" target="_blank">開啟粗剪</a>
-            <button id="export-final" class="primary">直接導出成片</button>
-            <a id="download-final" class="button-link disabled" download>下載成片</a>
-            <button id="export-jianying" class="ghost">建立剪映草稿</button>
+          <div class="panel scene-panel">
+            <div id="scene-list"></div>
           </div>
-          <div id="preflight-result" class="preflight-result hidden"></div>
-          <p class="hint">正式成片會套用 Scene 裁切、淡化轉場、字幕與 BGM；剪映草稿仍保留作為備用輸出。</p>
-        </div>
+
+          <div class="step-actions">
+            <button class="ghost" data-go-step="2">上一步</button>
+            <button class="primary" data-go-step="4">下一步：預覽剪輯</button>
+          </div>
+        </section>
+
+        <section class="workflow-step hidden" data-step="4">
+          <div class="step-heading">
+            <div><span class="eyebrow">STEP 4</span><h2>預覽與微調</h2></div>
+            <span class="step-meta">看成片，不用猜</span>
+          </div>
+
+          <div class="editor-layout">
+            <div class="preview-column">
+              <div id="preview-stage" class="preview-stage">
+                <div id="preview-placeholder" class="preview-placeholder">
+                  <strong>尚未產生預覽</strong>
+                  <span>按「更新預覽」就會在這裡直接播放</span>
+                </div>
+                <video id="editor-preview" class="editor-preview hidden" controls preload="metadata"></video>
+              </div>
+              <div class="preview-actions">
+                <button id="make-preview" class="primary">更新預覽</button>
+                <a id="open-preview" class="button-link ghost disabled" target="_blank">另開預覽</a>
+              </div>
+            </div>
+
+            <div class="edit-column">
+              <div class="panel">
+                <div class="panel-head">
+                  <h2>時間條</h2>
+                  <span>Scene 長度依旁白自動排列</span>
+                </div>
+                <div id="edit-timeline" class="edit-timeline"></div>
+              </div>
+
+              <div class="panel">
+                <div class="panel-head">
+                  <h2>背景音樂</h2>
+                  <span id="bgm-status">尚未加入 BGM</span>
+                </div>
+                <div class="bgm-controls vertical">
+                  <label class="button-link ghost">加入／更換 BGM
+                    <input id="bgm-upload" type="file" accept="audio/*" hidden />
+                  </label>
+                  <label class="bgm-volume">音量
+                    <input id="bgm-volume" type="range" min="0" max="100" step="1" value="18" />
+                    <span id="bgm-volume-value">18%</span>
+                  </label>
+                  <label class="check">
+                    <input id="bgm-ducking" type="checkbox" checked />
+                    旁白出現時自動降低 BGM
+                  </label>
+                  <button id="remove-bgm" class="ghost">移除 BGM</button>
+                </div>
+                <audio id="bgm-player" class="bgm-player hidden" controls preload="metadata"></audio>
+              </div>
+            </div>
+          </div>
+
+          <div class="step-actions">
+            <button class="ghost" data-go-step="3">回去換素材</button>
+            <button class="primary" data-go-step="5">確認，前往輸出</button>
+          </div>
+        </section>
+
+        <section class="workflow-step hidden" data-step="5">
+          <div class="step-heading">
+            <div><span class="eyebrow">STEP 5</span><h2>輸出成片</h2></div>
+            <span class="step-meta">完成後直接下載 MP4</span>
+          </div>
+          <div class="panel export-panel">
+            <div class="export-main">
+              <h3>正式成片 MP4</h3>
+              <p class="hint">套用素材裁切、轉場、字幕與 BGM。</p>
+              <div class="toolbar wrap">
+                <button id="preflight-check">輸出前檢查</button>
+                <button id="export-final" class="primary big-action">直接導出成片</button>
+                <a id="download-final" class="button-link disabled" download>下載成片</a>
+              </div>
+              <div id="preflight-result" class="preflight-result hidden"></div>
+            </div>
+            <details class="advanced-export">
+              <summary>其他輸出方式</summary>
+              <div class="toolbar wrap">
+                <button id="export-jianying" class="ghost">建立剪映草稿</button>
+              </div>
+            </details>
+          </div>
+          <div class="step-actions">
+            <button class="ghost" data-go-step="4">回到預覽</button>
+          </div>
+        </section>
       </section>
 
       <section id="library-panel" class="tab-panel hidden">
         <div class="panel">
-          <div class="panel-head"><h2>全域素材庫</h2><span>所有專案共用；搜尋 Scene 時會優先顯示本機素材</span></div>
+          <div class="panel-head"><h2>全域素材庫</h2><span>所有專案共用</span></div>
           <div class="toolbar">
             <input id="library-query" placeholder="搜尋：海浪、ocean、coast…" />
             <button id="library-search">搜尋</button>
@@ -185,16 +264,14 @@
               <button id="detect-jianying">自動偵測</button>
               <button id="save-jianying" class="primary">儲存位置</button>
             </div>
-            <p class="hint">也可從剪映「全域設定 → 草稿位置」複製路徑。</p>
           </div>
           <div>
             <h2>素材庫位置</h2>
             <label>共用素材庫資料夾
-              <input id="material-library-dir" placeholder="例如 D:\Broll素材庫" />
+              <input id="material-library-dir" placeholder="例如 D:\揪好剪素材庫" />
             </label>
             <button id="save-material-library" class="primary">搬移並使用這個位置</button>
             <p id="material-library-status" class="hint"></p>
-            <p class="hint">下載素材、本機加入素材、標籤索引都會放在這裡；變更時會自動複製既有素材並更新路徑。</p>
           </div>
         </div>
       </section>
