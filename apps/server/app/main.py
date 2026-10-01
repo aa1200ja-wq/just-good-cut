@@ -8,7 +8,7 @@ from app.routes.search import router as search_router
 from app.routes.review import router as review_router
 from app.routes.system import router as system_router
 
-app = FastAPI(title="B-roll Workflow", version="1.0.0")
+app = FastAPI(title="揪好剪", version="0.1.0")
 app.include_router(projects_router)
 app.include_router(library_router)
 app.include_router(project_admin_router)
