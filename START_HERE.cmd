@@ -1,10 +1,10 @@
 @echo off
 setlocal EnableExtensions
 cd /d "%~dp0"
-title B-roll Workflow
+title 揪好剪 JustGoodCut
 
 echo ========================================
-echo B-roll Workflow
+echo 揪好剪 JustGoodCut
 echo ========================================
 echo.
 
@@ -49,7 +49,7 @@ if errorlevel 1 (
   if errorlevel 1 goto :failed
 )
 
-echo [3/3] Starting B-roll Workflow...
+echo [3/3] Starting JustGoodCut...
 .venv\Scripts\python.exe run_local.py
 exit /b %errorlevel%
 
