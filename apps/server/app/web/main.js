@@ -7,6 +7,8 @@ import { bindSettings, loadSettings } from "./settings.js"
 const $ = selector => document.querySelector(selector)
 let toastTimer = null
 let pendingUploadTags = ""
+let activeStep = 1
+let previewProjectId = null
 
 function notify(message, error = false) {
   const toast = $("#toast")
@@ -30,6 +32,46 @@ async function openLibrary(sceneId = "", query = "") {
   fillLibraryScenes()
   if (sceneId) $("#library-scene").value = sceneId
   await refreshLibrary(query)
+}
+
+function showStep(step) {
+  activeStep = Math.min(5, Math.max(1, Number(step) || 1))
+  document.querySelectorAll(".workflow-step").forEach(section =>
+    section.classList.toggle("hidden", Number(section.dataset.step) !== activeStep))
+  document.querySelectorAll(".wizard-step").forEach(button => {
+    const number = Number(button.dataset.stepTarget)
+    button.classList.toggle("active", number === activeStep)
+    button.classList.toggle("done", number < activeStep)
+  })
+  activateTab("work")
+  window.scrollTo({ top: 0, behavior: "smooth" })
+}
+
+function inferredStep(project) {
+  if (!project?.script?.trim()) return 1
+  if (!project.scenes?.length || project.scenes.every(x => x.end <= x.start)) return 2
+  if (project.scenes.some(x => !x.selected_asset)) return 3
+  return 4
+}
+
+function resetInlinePreview() {
+  previewProjectId = null
+  const video = $("#editor-preview")
+  video.pause()
+  video.removeAttribute("src")
+  video.classList.add("hidden")
+  $("#preview-placeholder").classList.remove("hidden")
+  $("#open-preview").classList.add("disabled")
+}
+
+function showInlinePreview(url) {
+  const video = $("#editor-preview")
+  video.src = url
+  video.classList.remove("hidden")
+  $("#preview-placeholder").classList.add("hidden")
+  $("#open-preview").href = url
+  $("#open-preview").classList.remove("disabled")
+  video.load()
 }
 
 function renderProjects() {
@@ -105,7 +147,10 @@ async function loadProjects(selectFirst = true) {
 
 async function selectProject(id) {
   setProject(await api.project(id))
+  resetInlinePreview()
+  activeStep = inferredStep(state.project)
   renderProject()
+  showStep(activeStep)
 }
 
 async function refreshProject(fetch = true) {
@@ -127,13 +172,22 @@ function bindTabs() {
   }))
 }
 
+function bindWizard() {
+  document.querySelectorAll("[data-step-target], [data-go-step]").forEach(button => {
+    button.addEventListener("click", () =>
+      showStep(button.dataset.stepTarget || button.dataset.goStep))
+  })
+}
+
+
 function bindProjectActions() {
   $("#create-project").addEventListener("click", async () => {
     const name = $("#new-project-name").value.trim() || "未命名專案"
     try {
       const project = await api.createProject(name)
       state.projects.push(project); setProject(project)
-      $("#new-project-name").value = ""; renderProject()
+      $("#new-project-name").value = ""
+      resetInlinePreview(); activeStep = 1; renderProject(); showStep(1)
       notify("專案已建立")
     } catch (err) { notify(err.message, true) }
   })
@@ -164,28 +218,24 @@ function bindProjectActions() {
 }
 
 function bindSideMenu() {
-  $("#side-library").addEventListener("click", () => openLibrary())
   $("#side-search-external").addEventListener("click", async () => {
     if (!needProject()) return
     try {
       notify("正在搜尋所有 Scene 的新外部素材…")
       state.results = await api.searchExternalAll(state.project.id, selectedSources())
-      renderScenes(); activateTab("work")
+      renderScenes(); showStep(3)
       const count = Object.values(state.results).reduce((sum, x) => sum + x.length, 0)
       notify(`外部搜尋完成：${count} 個尚未下載的候選素材`)
     } catch (err) { notify(err.message, true) }
-  })
-  $("#side-upload").addEventListener("click", () => {
-    pendingUploadTags = prompt("自訂標籤（可留空，多個用逗號分隔）", "") ?? ""
-    $("#global-upload").click()
   })
   $("#global-upload").addEventListener("change", async event => {
     const files = [...(event.target.files || [])]
     if (!files.length) return
     try {
+      pendingUploadTags = prompt("自訂標籤（可留空，多個用逗號分隔）", "") ?? ""
       notify(`正在加入 ${files.length} 個本機素材…`)
       for (const file of files) await api.uploadLibrary(file, pendingUploadTags)
-      event.target.value = ""; await openLibrary()
+      event.target.value = ""; await refreshLibrary()
       notify("本機素材已加入全域素材庫")
     } catch (err) { notify(err.message, true) }
   })
@@ -234,7 +284,8 @@ function bindWorkflow() {
     if (!needProject()) return
     try {
       setProject(await api.setScript(state.project.id, $("#script").value))
-      renderProject(); notify(`已切成 ${state.project.scenes.length} 個 Scene`)
+      renderProject(); showStep(2)
+      notify(`已切成 ${state.project.scenes.length} 個 Scene`)
     } catch (err) { notify(err.message, true) }
   })
   $("#make-tts").addEventListener("click", async () => {
@@ -245,7 +296,7 @@ function bindWorkflow() {
         state.project.id, $("#voice").value, $("#rate").value,
         $("#pitch").value, $("#rhythm").value
       )
-      await refreshProject(false); notify("旁白與時間碼完成")
+      await refreshProject(false); showStep(3); notify("旁白與時間碼完成")
     } catch (err) { notify(err.message, true) }
   })
   $("#bgm-upload").addEventListener("change", async event => {
@@ -316,9 +367,19 @@ function bindWorkflow() {
   $("#make-preview").addEventListener("click", async () => {
     if (!needProject()) return
     try {
-      notify("正在產生粗剪預覽…"); await api.preview(state.project.id)
-      $("#open-preview").href = api.previewUrl(state.project.id)
-      $("#open-preview").classList.remove("disabled"); notify("粗剪預覽完成")
+      const report = await runPreflight()
+      if (!report?.ready) {
+        notify("還有 Scene 缺素材，請先回到第 3 步補齊", true)
+        return
+      }
+      notify("正在更新成片預覽…")
+      await api.renderFinal(state.project.id)
+      const url = api.finalUrl(state.project.id)
+      previewProjectId = state.project.id
+      showInlinePreview(url)
+      $("#download-final").href = url
+      $("#download-final").classList.remove("disabled")
+      notify("預覽已更新")
     } catch (err) { notify(err.message, true) }
   })
   $("#export-final").addEventListener("click", async () => {
@@ -352,7 +413,7 @@ function bindWorkflow() {
 }
 
 async function start() {
-  bindTabs(); bindProjectActions(); bindSideMenu(); bindWorkflow()
+  bindTabs(); bindWizard(); bindProjectActions(); bindSideMenu(); bindWorkflow()
   bindSceneEvents({ notify, refreshProject, refreshLibrary, openLibrary })
   bindLibrary({ notify, refreshProject })
   bindSettings({ notify })
