@@ -27,12 +27,30 @@ def _clip_for_scene(project: Project, scene: Scene, safety_pad: float = SAFETY_P
                 "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p", str(target),
             ]
         else:
-            args = [
-                "-y", "-stream_loop", "-1", "-i", str(source),
-                "-t", f"{render_duration:.3f}",
-                "-vf", f"{scale},tpad=stop_mode=clone:stop_duration={max(0.0, safety_pad):.3f}",
-                "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p", str(target),
-            ]
+            asset_in = max(0.0, float(scene.asset_in or 0.0))
+            asset_out = max(0.0, float(scene.asset_out or 0.0))
+            if asset_out > asset_in:
+                span = max(0.1, asset_out - asset_in)
+                pad = max(0.0, render_duration - span)
+                args = [
+                    "-y", "-ss", f"{asset_in:.3f}", "-i", str(source),
+                    "-t", f"{render_duration:.3f}",
+                    "-vf",
+                    f"trim=duration={span:.3f},setpts=PTS-STARTPTS,"
+                    f"{scale},tpad=stop_mode=clone:stop_duration={pad:.3f}",
+                    "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p", str(target),
+                ]
+            else:
+                args = ["-y", "-stream_loop", "-1"]
+                if asset_in > 0:
+                    args.extend(["-ss", f"{asset_in:.3f}"])
+                args.extend([
+                    "-i", str(source), "-t", f"{render_duration:.3f}",
+                    "-vf",
+                    f"{scale},tpad=stop_mode=clone:"
+                    f"stop_duration={max(0.0, safety_pad):.3f}",
+                    "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p", str(target),
+                ])
     else:
         args = [
             "-y", "-f", "lavfi", "-i",
