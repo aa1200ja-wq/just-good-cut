@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>B-roll Workflow</title>
+  <title>揪好剪</title>
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
   <div class="app-shell">
     <aside class="sidebar">
       <div class="brand">
-        <strong>B-roll Workflow</strong>
-        <small>旁白 → 素材 → 剪映草稿</small>
+        <strong>揪好剪</strong>
+        <small>旁白 → 素材 → 直接成片</small>
       </div>
       <div class="side-menu">
         <button id="side-search-external" class="side-action">搜尋外部素材</button>
@@ -64,7 +64,13 @@
         <div class="panel">
           <h2>2. 產生旁白＋時間碼</h2>
           <div class="grid-5">
-            <label>聲音<input id="voice" value="zh-TW-YunJheNeural" /></label>
+            <label>聲音
+              <select id="voice">
+                <option value="zh-TW-YunJheNeural">台灣男聲｜雲哲</option>
+                <option value="zh-TW-HsiaoChenNeural">台灣女聲｜曉臻</option>
+                <option value="zh-TW-HsiaoYuNeural">台灣女聲｜曉雨</option>
+              </select>
+            </label>
             <label>語速<input id="rate" value="+0%" /></label>
             <label>音調<input id="pitch" value="+0Hz" /></label>
             <label>節奏
@@ -99,15 +105,41 @@
         </div>
 
         <div class="panel">
-          <h2>5. 輸出</h2>
+          <div class="panel-head">
+            <h2>5. 成片編輯</h2>
+            <span>只保留最常用的調整</span>
+          </div>
+          <div id="edit-timeline" class="edit-timeline"></div>
+          <div class="bgm-controls">
+            <label class="button-link ghost">加入／更換 BGM
+              <input id="bgm-upload" type="file" accept="audio/*" hidden />
+            </label>
+            <label class="bgm-volume">BGM 音量
+              <input id="bgm-volume" type="range" min="0" max="100" step="1" value="18" />
+              <span id="bgm-volume-value">18%</span>
+            </label>
+            <label class="check">
+              <input id="bgm-ducking" type="checkbox" checked />
+              旁白出現時自動降低 BGM
+            </label>
+            <button id="remove-bgm" class="ghost">移除 BGM</button>
+          </div>
+          <audio id="bgm-player" class="bgm-player hidden" controls preload="metadata"></audio>
+          <p id="bgm-status" class="hint">尚未加入 BGM</p>
+        </div>
+
+        <div class="panel">
+          <h2>6. 輸出</h2>
           <div class="toolbar wrap">
             <button id="preflight-check">輸出前檢查</button>
             <button id="make-preview">產生粗剪預覽</button>
             <a id="open-preview" class="button-link disabled" target="_blank">開啟粗剪</a>
-            <button id="export-jianying" class="primary">建立剪映草稿</button>
+            <button id="export-final" class="primary">直接導出成片</button>
+            <a id="download-final" class="button-link disabled" download>下載成片</a>
+            <button id="export-jianying" class="ghost">建立剪映草稿</button>
           </div>
           <div id="preflight-result" class="preflight-result hidden"></div>
-          <p class="hint">輸出前檢查會逐幕確認素材、時間碼與旁白；剪映草稿輸出也會自動再檢查一次。</p>
+          <p class="hint">正式成片會套用 Scene 裁切、淡化轉場、字幕與 BGM；剪映草稿仍保留作為備用輸出。</p>
         </div>
       </section>
 
