@@ -28,6 +28,9 @@ export const api = {
       narration: scene.narration,
       search_query: scene.search_query,
       rhythm: scene.rhythm || "inherit",
+      asset_in: Number(scene.asset_in || 0),
+      asset_out: Number(scene.asset_out || 0),
+      transition: scene.transition || "none",
     }, "PUT")),
   splitScene: (id, sceneId, position) => request(
     `/api/projects/${id}/scenes/${sceneId}/split`, json({ position })),
@@ -59,6 +62,16 @@ export const api = {
   },
   preview: id => request(`/api/projects/${id}/preview`, json({ burn_subtitles: true })),
   previewUrl: id => `/api/projects/${id}/preview-file?t=${Date.now()}`,
+  uploadBgm: async (id, file) => {
+    const form = new FormData(); form.append("file", file)
+    return request(`/api/projects/${id}/bgm`, { method: "POST", body: form })
+  },
+  saveBgm: (id, volume, ducking) => request(
+    `/api/projects/${id}/bgm-settings`, json({ volume, ducking }, "PUT")),
+  removeBgm: id => request(`/api/projects/${id}/bgm`, { method: "DELETE" }),
+  bgmUrl: id => `/api/projects/${id}/bgm-file?t=${Date.now()}`,
+  renderFinal: id => request(`/api/projects/${id}/render-final`, json({ burn_subtitles: true })),
+  finalUrl: id => `/api/projects/${id}/final-file?t=${Date.now()}`,
   sceneAudioUrl: (id, sceneId) =>
     `/api/projects/${id}/scenes/${sceneId}/audio?t=${Date.now()}`,
   preflight: id => request(`/api/projects/${id}/preflight`),
