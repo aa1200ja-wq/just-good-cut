@@ -4,11 +4,12 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from app.config import settings
 from app.models import (
-    BulkQueriesRequest, BulkSearchRequest, CreateProjectRequest, ProjectFormatRequest,
-    DownloadAssetRequest, JianyingExportRequest, PreviewRequest,
+    BGMSettingsRequest, BulkQueriesRequest, BulkSearchRequest, CreateProjectRequest,
+    ProjectFormatRequest, DownloadAssetRequest, FinalRenderRequest,
+    JianyingExportRequest, PreviewRequest,
     SceneUpdateRequest, ScriptRequest, SplitSceneRequest, TTSRequest,
 )
-from app.services import jianying, library, media, preflight, preview, projects, search, tts
+from app.services import final_render, jianying, library, media, preflight, preview, projects, search, tts
 
 router = APIRouter(prefix="/api")
 
@@ -101,6 +102,12 @@ def update_scene(project_id: str, scene_id: str, body: SceneUpdateRequest):
         scene.search_query = body.search_query.strip()
     if body.rhythm is not None:
         scene.rhythm = body.rhythm
+    if body.asset_in is not None:
+        scene.asset_in = max(0.0, body.asset_in)
+    if body.asset_out is not None:
+        scene.asset_out = max(0.0, body.asset_out)
+    if body.transition is not None:
+        scene.transition = body.transition
     return projects.save_project(project)
 
 
@@ -188,6 +195,74 @@ async def generate_tts(project_id: str, body: TTSRequest):
         return await tts.synthesize(project, voice, body.rate, body.pitch, body.rhythm)
     except Exception as exc:
         raise HTTPException(500, str(exc)) from exc
+
+
+@router.post("/projects/{project_id}/bgm")
+async def upload_bgm(project_id: str, file: UploadFile = File(...)):
+    project = _load(project_id)
+    ext = Path(file.filename or "").suffix.lower()
+    if ext not in {".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg"}:
+        raise HTTPException(400, "BGM 請使用 MP3、WAV、M4A、AAC、FLAC 或 OGG")
+    data = await file.read()
+    if not data:
+        raise HTTPException(400, "BGM 檔案是空的")
+    audio_dir = projects.project_path(project_id) / "audio"
+    audio_dir.mkdir(parents=True, exist_ok=True)
+    for old in audio_dir.glob("bgm.*"):
+        old.unlink(missing_ok=True)
+    target = audio_dir / f"bgm{ext}"
+    target.write_bytes(data)
+    project.bgm_path = str(target)
+    return projects.save_project(project)
+
+
+@router.put("/projects/{project_id}/bgm-settings")
+def update_bgm_settings(project_id: str, body: BGMSettingsRequest):
+    project = _load(project_id)
+    project.bgm_volume = min(1.0, max(0.0, body.volume))
+    project.bgm_ducking = body.ducking
+    return projects.save_project(project)
+
+
+@router.delete("/projects/{project_id}/bgm")
+def remove_bgm(project_id: str):
+    project = _load(project_id)
+    if project.bgm_path:
+        Path(project.bgm_path).unlink(missing_ok=True)
+    project.bgm_path = None
+    return projects.save_project(project)
+
+
+@router.get("/projects/{project_id}/bgm-file")
+def bgm_file(project_id: str):
+    project = _load(project_id)
+    path = Path(project.bgm_path) if project.bgm_path else None
+    if not path or not path.exists():
+        raise HTTPException(404, "尚未加入 BGM")
+    return FileResponse(path, filename=path.name)
+
+
+@router.post("/projects/{project_id}/render-final")
+def render_final(project_id: str, body: FinalRenderRequest):
+    project = _load(project_id)
+    report = preflight.inspect_project(project)
+    if not report["ready"]:
+        raise HTTPException(
+            400, "輸出前檢查未通過：" + preflight.missing_summary(report)
+        )
+    try:
+        path = final_render.build_final(project, body.burn_subtitles)
+        return {"ok": True, "path": str(path)}
+    except Exception as exc:
+        raise HTTPException(500, str(exc)) from exc
+
+
+@router.get("/projects/{project_id}/final-file")
+def final_file(project_id: str):
+    path = projects.project_path(project_id) / "exports" / "final.mp4"
+    if not path.exists():
+        raise HTTPException(404, "尚未產生正式成片")
+    return FileResponse(path, media_type="video/mp4", filename="揪好剪-成片.mp4")
 
 
 @router.get("/search")
