@@ -40,6 +40,34 @@ function renderProjects() {
     ? `專案管理｜${state.project.name}` : "專案管理"
 }
 
+function renderEditTimeline() {
+  const root = $("#edit-timeline")
+  const p = state.project
+  if (!p?.scenes?.length) {
+    root.innerHTML = '<p class="hint">產生旁白時間碼後，這裡會顯示成片時間條。</p>'
+    return
+  }
+  const total = p.scenes.reduce((sum, scene) => sum + Math.max(0.1, scene.end - scene.start), 0)
+  const blocks = p.scenes.map(scene => {
+    const duration = Math.max(0.1, scene.end - scene.start)
+    const width = Math.max(6, duration / total * 100)
+    const trans = scene.transition === "fade" ? " · 淡化" : ""
+    return `<div class="timeline-scene" style="flex-basis:${width}%"
+      title="${scene.id} ${duration.toFixed(1)} 秒${trans}">
+      <strong>${scene.id}</strong><span>${duration.toFixed(1)}s</span>
+    </div>`
+  }).join("")
+  root.innerHTML = `
+    <div class="timeline-ruler"><span>0:00</span><span>${total.toFixed(1)} 秒</span></div>
+    <div class="timeline-track">${blocks}</div>
+    <div class="timeline-audio ${p.bgm_path ? "has-bgm" : ""}">
+      <span>旁白</span><div class="audio-line"></div>
+    </div>
+    <div class="timeline-audio ${p.bgm_path ? "has-bgm" : ""}">
+      <span>BGM</span><div class="audio-line bgm-line">${p.bgm_path ? "已加入背景音樂" : "尚未加入"}</div>
+    </div>`
+}
+
 function renderProject() {
   const p = state.project
   $("#project-title").textContent = p?.name || "請建立專案"
@@ -50,7 +78,21 @@ function renderProject() {
   $("#rate").value = p?.rate || "+0%"
   $("#pitch").value = p?.pitch || "+0Hz"
   $("#rhythm").value = p?.rhythm || "natural"
-  renderProjects(); renderScenes(); fillLibraryScenes()
+  const volume = Math.round((p?.bgm_volume ?? 0.18) * 100)
+  $("#bgm-volume").value = volume
+  $("#bgm-volume-value").textContent = `${volume}%`
+  $("#bgm-ducking").checked = p?.bgm_ducking ?? true
+  $("#bgm-status").textContent = p?.bgm_path ? "BGM 已加入，可直接預聽" : "尚未加入 BGM"
+  $("#remove-bgm").disabled = !p?.bgm_path
+  const player = $("#bgm-player")
+  if (p?.bgm_path) {
+    player.src = api.bgmUrl(p.id)
+    player.classList.remove("hidden")
+  } else {
+    player.removeAttribute("src")
+    player.classList.add("hidden")
+  }
+  renderProjects(); renderScenes(); fillLibraryScenes(); renderEditTimeline()
 }
 
 async function loadProjects(selectFirst = true) {
@@ -206,6 +248,53 @@ function bindWorkflow() {
       await refreshProject(false); notify("旁白與時間碼完成")
     } catch (err) { notify(err.message, true) }
   })
+  $("#bgm-upload").addEventListener("change", async event => {
+    if (!needProject()) return
+    const file = event.target.files?.[0]
+    if (!file) return
+    try {
+      notify("正在加入 BGM…")
+      state.project = await api.uploadBgm(state.project.id, file)
+      event.target.value = ""
+      await refreshProject(false)
+      notify("BGM 已加入")
+    } catch (err) { notify(err.message, true) }
+  })
+  $("#bgm-volume").addEventListener("input", event => {
+    $("#bgm-volume-value").textContent = `${event.target.value}%`
+  })
+  $("#bgm-volume").addEventListener("change", async () => {
+    if (!needProject()) return
+    try {
+      state.project = await api.saveBgm(
+        state.project.id,
+        Number($("#bgm-volume").value) / 100,
+        $("#bgm-ducking").checked,
+      )
+      await refreshProject(false)
+      notify("BGM 音量已更新")
+    } catch (err) { notify(err.message, true) }
+  })
+  $("#bgm-ducking").addEventListener("change", async () => {
+    if (!needProject()) return
+    try {
+      state.project = await api.saveBgm(
+        state.project.id,
+        Number($("#bgm-volume").value) / 100,
+        $("#bgm-ducking").checked,
+      )
+      await refreshProject(false)
+      notify("BGM 自動壓低設定已更新")
+    } catch (err) { notify(err.message, true) }
+  })
+  $("#remove-bgm").addEventListener("click", async () => {
+    if (!needProject() || !state.project.bgm_path) return
+    try {
+      state.project = await api.removeBgm(state.project.id)
+      await refreshProject(false)
+      notify("BGM 已移除")
+    } catch (err) { notify(err.message, true) }
+  })
   $("#search-all").addEventListener("click", async () => {
     if (!needProject()) return
     const queries = $("#bulk-queries").value.split(/\r?\n/).map(x => x.trim()).filter(Boolean)
@@ -230,6 +319,21 @@ function bindWorkflow() {
       notify("正在產生粗剪預覽…"); await api.preview(state.project.id)
       $("#open-preview").href = api.previewUrl(state.project.id)
       $("#open-preview").classList.remove("disabled"); notify("粗剪預覽完成")
+    } catch (err) { notify(err.message, true) }
+  })
+  $("#export-final").addEventListener("click", async () => {
+    if (!needProject()) return
+    try {
+      const report = await runPreflight()
+      if (!report?.ready) {
+        notify("輸出前檢查未通過，請先補齊上方列出的 Scene", true)
+        return
+      }
+      notify("正在導出正式成片…")
+      await api.renderFinal(state.project.id)
+      $("#download-final").href = api.finalUrl(state.project.id)
+      $("#download-final").classList.remove("disabled")
+      notify("正式成片完成，可以下載")
     } catch (err) { notify(err.message, true) }
   })
   $("#export-jianying").addEventListener("click", async () => {
