@@ -131,3 +131,67 @@ label > input { margin-top: 6px; }
 .preflight-counts { margin-top: 6px; color: #c6cbd4; }
 .preflight-ok { border-color: #315b41; background: #18271e; }
 .preflight-bad { border-color: #6d3b3b; background: #2a1d1f; }
+
+
+/* 揪好剪 MVP：簡易成片編輯 */
+.scene-edit {
+  margin-top: 9px; border: 1px solid #303640; border-radius: 9px;
+  padding: 8px 10px; background: #1b1f25;
+}
+.scene-edit > summary { cursor: pointer; color: #d1d5dc; user-select: none; }
+.scene-edit-grid {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px; margin-top: 10px;
+}
+.scene-edit-grid label { font-size: 12px; }
+.scene-edit-grid input, .scene-edit-grid select { margin-top: 4px; }
+.compact-hint { margin: 8px 0 0; font-size: 12px; }
+
+.edit-timeline { display: grid; gap: 8px; margin-bottom: 14px; }
+.timeline-ruler {
+  display: flex; justify-content: space-between; color: #8f96a2; font-size: 12px;
+}
+.timeline-track {
+  display: flex; min-height: 54px; overflow: hidden; border-radius: 10px;
+  border: 1px solid #343a44; background: #111318;
+}
+.timeline-scene {
+  min-width: 58px; flex-grow: 1; padding: 9px 8px; display: grid;
+  align-content: center; gap: 2px; border-right: 1px solid #414752;
+  background: #252a32;
+}
+.timeline-scene:last-child { border-right: 0; }
+.timeline-scene strong { font-size: 12px; color: #fff; }
+.timeline-scene span { font-size: 11px; color: #aeb4bf; }
+.timeline-audio {
+  min-height: 34px; display: grid; grid-template-columns: 56px 1fr;
+  align-items: center; gap: 8px; color: #9fa6b2; font-size: 12px;
+}
+.audio-line {
+  min-height: 24px; border-radius: 7px; border: 1px solid #343a44;
+  background: repeating-linear-gradient(90deg, #2b3038 0 8px, #22262d 8px 12px);
+}
+.bgm-line {
+  display: flex; align-items: center; padding: 0 9px; color: #98a0ac;
+  background: #20242b;
+}
+.timeline-audio.has-bgm .bgm-line { border-color: #46648a; }
+
+.bgm-controls {
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+  padding-top: 10px; border-top: 1px solid #2b3038;
+}
+.bgm-volume {
+  display: grid; grid-template-columns: auto minmax(120px, 220px) 44px;
+  gap: 8px; align-items: center;
+}
+.bgm-volume input { margin: 0; padding: 0; }
+.bgm-player { width: 100%; margin-top: 10px; height: 40px; }
+
+@media (max-width: 760px) {
+  .scene-edit-grid { grid-template-columns: 1fr; }
+  .timeline-track { overflow-x: auto; }
+  .timeline-scene { flex-basis: 95px !important; flex-grow: 0; }
+  .bgm-controls { align-items: stretch; flex-direction: column; }
+  .bgm-volume { grid-template-columns: auto 1fr 44px; }
+}
