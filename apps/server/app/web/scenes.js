@@ -66,6 +66,26 @@ function sceneCard(scene) {
           <input data-action="upload" type="file" accept="video/*,image/*" hidden />
         </label>
       </div>
+      <details class="scene-edit">
+        <summary>剪輯設定</summary>
+        <div class="scene-edit-grid">
+          <label>素材開始
+            <input data-field="asset_in" type="number" min="0" step="0.1"
+              value="${Number(scene.asset_in || 0).toFixed(1)}" />
+          </label>
+          <label>素材結束
+            <input data-field="asset_out" type="number" min="0" step="0.1"
+              value="${Number(scene.asset_out || 0).toFixed(1)}" />
+          </label>
+          <label>接下一幕
+            <select data-field="transition">
+              <option value="none" ${(scene.transition || "none") === "none" ? "selected" : ""}>直接切</option>
+              <option value="fade" ${scene.transition === "fade" ? "selected" : ""}>淡化轉場</option>
+            </select>
+          </label>
+        </div>
+        <p class="hint compact-hint">素材結束填 0 代表自動延伸到這幕結束。</p>
+      </details>
       <div class="scene-actions">
         <button class="ghost" data-action="play-audio">▶ 播放旁白</button>
         <button class="ghost" data-action="split">拆分</button>
@@ -95,6 +115,9 @@ async function saveScene(card) {
   scene.narration = card.querySelector('[data-field="narration"]').value
   scene.search_query = card.querySelector('[data-field="query"]').value
   scene.rhythm = card.querySelector('[data-field="rhythm"]').value
+  scene.asset_in = Number(card.querySelector('[data-field="asset_in"]')?.value || 0)
+  scene.asset_out = Number(card.querySelector('[data-field="asset_out"]')?.value || 0)
+  scene.transition = card.querySelector('[data-field="transition"]')?.value || "none"
   await api.updateScene(state.project.id, scene)
 }
 
