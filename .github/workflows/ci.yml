@@ -1,5 +1,5 @@
 name: CI and Windows Build
-# v3: global library, subtitle preview, Jianying duration safety
+# 揪好剪：local-first B-roll workflow + final MP4 export
 
 on:
   push:
@@ -54,17 +54,17 @@ jobs:
       - name: Build portable Windows app
         shell: pwsh
         run: |
-          pyinstaller --noconfirm --clean --windowed --name BrollWorkflow `
+          pyinstaller --noconfirm --clean --windowed --name JustGoodCut `
             --paths apps/server `
             --add-data "apps/server/app/web;app/web" `
             --collect-all imageio_ffmpeg `
             --collect-all pyJianYingDraft `
             run_local.py
-          Copy-Item README.md dist\BrollWorkflow\README.md
+          Copy-Item README.md dist\JustGoodCut\README.md
       - name: Smoke test portable EXE
         shell: pwsh
         run: |
-          $proc = Start-Process -FilePath "dist\BrollWorkflow\BrollWorkflow.exe" -PassThru
+          $proc = Start-Process -FilePath "dist\JustGoodCut\JustGoodCut.exe" -PassThru
           $ok = $false
           for ($i = 0; $i -lt 20; $i++) {
             Start-Sleep -Seconds 1
@@ -85,9 +85,9 @@ jobs:
       - name: Package portable ZIP
         shell: pwsh
         run: |
-          Compress-Archive -Path dist\BrollWorkflow\* -DestinationPath BrollWorkflow-Windows.zip
+          Compress-Archive -Path dist\JustGoodCut\* -DestinationPath JustGoodCut-Windows.zip
       - uses: actions/upload-artifact@v4
         with:
-          name: BrollWorkflow-Windows
-          path: BrollWorkflow-Windows.zip
+          name: JustGoodCut-Windows
+          path: JustGoodCut-Windows.zip
           retention-days: 30
