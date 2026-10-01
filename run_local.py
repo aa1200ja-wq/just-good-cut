@@ -32,11 +32,11 @@ def _open_browser(url: str) -> None:
 
 
 def _show_error(message: str) -> None:
-    log = _root() / "BrollWorkflow-error.log"
+    log = _root() / "JustGoodCut-error.log"
     log.write_text(message, encoding="utf-8")
     if os.name == "nt":
         import ctypes
-        ctypes.windll.user32.MessageBoxW(0, message, "B-roll Workflow", 0x10)
+        ctypes.windll.user32.MessageBoxW(0, message, "揪好剪", 0x10)
     else:
         print(message)
 
