@@ -1,0 +1,259 @@
+import { api } from "./api.js"
+import { state, setProject, selectedSources } from "./state.js"
+import { bindSceneEvents, renderScenes } from "./scenes.js"
+import { bindLibrary, fillLibraryScenes, refreshLibrary } from "./library.js"
+import { bindSettings, loadSettings } from "./settings.js"
+
+const $ = selector => document.querySelector(selector)
+let toastTimer = null
+let pendingUploadTags = ""
+
+function notify(message, error = false) {
+  const toast = $("#toast")
+  toast.textContent = message
+  toast.classList.remove("hidden", "error")
+  if (error) toast.classList.add("error")
+  clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => toast.classList.add("hidden"), error ? 7000 : 3500)
+}
+
+function activateTab(name) {
+  document.querySelectorAll(".tab").forEach(x =>
+    x.classList.toggle("active", x.dataset.tab === name))
+  document.querySelectorAll(".tab-panel").forEach(x => x.classList.add("hidden"))
+  $(`#${name}-panel`).classList.remove("hidden")
+}
+
+async function openLibrary(sceneId = "", query = "") {
+  activateTab("library")
+  $("#library-query").value = query || ""
+  fillLibraryScenes()
+  if (sceneId) $("#library-scene").value = sceneId
+  await refreshLibrary(query)
+}
+
+function renderProjects() {
+  $("#project-list").innerHTML = state.projects.map(project => `
+    <button class="project-item ${state.project?.id === project.id ? "active" : ""}"
+      data-project="${project.id}">${project.name}</button>`).join("")
+  $("#project-manager-summary").textContent = state.project
+    ? `專案管理｜${state.project.name}` : "專案管理"
+}
+
+function renderProject() {
+  const p = state.project
+  $("#project-title").textContent = p?.name || "請建立專案"
+  $("#project-meta").textContent = p ? `${p.scenes.length} 個 Scene · ${p.width}×${p.height}` : ""
+  if (p) $("#project-format").value = p.width >= p.height ? "16:9" : "9:16"
+  $("#script").value = p?.script || ""
+  $("#voice").value = p?.voice || "zh-TW-YunJheNeural"
+  $("#rate").value = p?.rate || "+0%"
+  $("#pitch").value = p?.pitch || "+0Hz"
+  $("#rhythm").value = p?.rhythm || "natural"
+  renderProjects(); renderScenes(); fillLibraryScenes()
+}
+
+async function loadProjects(selectFirst = true) {
+  state.projects = await api.projects()
+  if (selectFirst && !state.project && state.projects.length) {
+    await selectProject(state.projects[0].id); return
+  }
+  renderProject()
+}
+
+async function selectProject(id) {
+  setProject(await api.project(id))
+  renderProject()
+}
+
+async function refreshProject(fetch = true) {
+  if (!state.project) return
+  if (fetch) state.project = await api.project(state.project.id)
+  state.projects = state.projects.map(p => p.id === state.project.id ? state.project : p)
+  renderProject()
+}
+
+function needProject() {
+  if (state.project) return true
+  notify("請先建立或選擇專案", true); return false
+}
+
+function bindTabs() {
+  document.querySelectorAll(".tab").forEach(button => button.addEventListener("click", async () => {
+    activateTab(button.dataset.tab)
+    if (button.dataset.tab === "library") await refreshLibrary()
+  }))
+}
+
+function bindProjectActions() {
+  $("#create-project").addEventListener("click", async () => {
+    const name = $("#new-project-name").value.trim() || "未命名專案"
+    try {
+      const project = await api.createProject(name)
+      state.projects.push(project); setProject(project)
+      $("#new-project-name").value = ""; renderProject()
+      notify("專案已建立")
+    } catch (err) { notify(err.message, true) }
+  })
+  $("#project-list").addEventListener("click", async event => {
+    const button = event.target.closest("[data-project]")
+    if (!button) return
+    try { await selectProject(button.dataset.project); activateTab("work") }
+    catch (err) { notify(err.message, true) }
+  })
+  $("#rename-project").addEventListener("click", async () => {
+    if (!needProject()) return
+    const name = prompt("新的專案名稱", state.project.name)
+    if (!name?.trim()) return
+    try {
+      state.project = await api.renameProject(state.project.id, name.trim())
+      await loadProjects(false); renderProject(); notify("專案已重新命名")
+    } catch (err) { notify(err.message, true) }
+  })
+  $("#delete-project").addEventListener("click", async () => {
+    if (!needProject()) return
+    if (!confirm(`確定刪除專案「${state.project.name}」？全域素材庫不會刪除。`)) return
+    try {
+      await api.deleteProject(state.project.id)
+      setProject(null); await loadProjects(true)
+      notify("專案已刪除")
+    } catch (err) { notify(err.message, true) }
+  })
+}
+
+function bindSideMenu() {
+  $("#side-library").addEventListener("click", () => openLibrary())
+  $("#side-search-external").addEventListener("click", async () => {
+    if (!needProject()) return
+    try {
+      notify("正在搜尋所有 Scene 的新外部素材…")
+      state.results = await api.searchExternalAll(state.project.id, selectedSources())
+      renderScenes(); activateTab("work")
+      const count = Object.values(state.results).reduce((sum, x) => sum + x.length, 0)
+      notify(`外部搜尋完成：${count} 個尚未下載的候選素材`)
+    } catch (err) { notify(err.message, true) }
+  })
+  $("#side-upload").addEventListener("click", () => {
+    pendingUploadTags = prompt("自訂標籤（可留空，多個用逗號分隔）", "") ?? ""
+    $("#global-upload").click()
+  })
+  $("#global-upload").addEventListener("change", async event => {
+    const files = [...(event.target.files || [])]
+    if (!files.length) return
+    try {
+      notify(`正在加入 ${files.length} 個本機素材…`)
+      for (const file of files) await api.uploadLibrary(file, pendingUploadTags)
+      event.target.value = ""; await openLibrary()
+      notify("本機素材已加入全域素材庫")
+    } catch (err) { notify(err.message, true) }
+  })
+}
+
+function renderPreflight(report) {
+  const box = $("#preflight-result")
+  box.classList.remove("hidden", "preflight-ok", "preflight-bad")
+  if (report.ready) {
+    box.classList.add("preflight-ok")
+    box.innerHTML = `<strong>✓ 可以輸出</strong><span> ${report.scene_count} 幕的素材、時間碼、旁白都完整。</span>`
+    return
+  }
+  box.classList.add("preflight-bad")
+  const rows = report.issues.map(item =>
+    `<li><strong>${item.scene_id}</strong>：缺 ${item.missing.join("、")}</li>`
+  ).join("")
+  const projectRows = report.project_issues.map(item => `<li>${item}</li>`).join("")
+  box.innerHTML = `
+    <strong>輸出前還有缺漏</strong>
+    <div class="preflight-counts">
+      沒素材 ${report.counts["素材"]} 幕 ·
+      沒時間碼 ${report.counts["時間碼"]} 幕 ·
+      沒旁白 ${report.counts["旁白"]} 幕
+    </div>
+    <ul>${rows}${projectRows}</ul>`
+}
+
+async function runPreflight() {
+  if (!needProject()) return null
+  const report = await api.preflight(state.project.id)
+  renderPreflight(report)
+  return report
+}
+
+function bindWorkflow() {
+  $("#project-format").addEventListener("change", async () => {
+    if (!needProject()) return
+    try {
+      state.project = await api.setFormat(state.project.id, $("#project-format").value)
+      state.results = {}; await refreshProject(false)
+      notify("畫面比例已更新；素材方向會自動匹配")
+    } catch (err) { notify(err.message, true) }
+  })
+  $("#split-script").addEventListener("click", async () => {
+    if (!needProject()) return
+    try {
+      setProject(await api.setScript(state.project.id, $("#script").value))
+      renderProject(); notify(`已切成 ${state.project.scenes.length} 個 Scene`)
+    } catch (err) { notify(err.message, true) }
+  })
+  $("#make-tts").addEventListener("click", async () => {
+    if (!needProject()) return
+    try {
+      notify("正在產生旁白與時間碼…")
+      state.project = await api.tts(
+        state.project.id, $("#voice").value, $("#rate").value,
+        $("#pitch").value, $("#rhythm").value
+      )
+      await refreshProject(false); notify("旁白與時間碼完成")
+    } catch (err) { notify(err.message, true) }
+  })
+  $("#search-all").addEventListener("click", async () => {
+    if (!needProject()) return
+    const queries = $("#bulk-queries").value.split(/\r?\n/).map(x => x.trim()).filter(Boolean)
+    if (!queries.length) { notify("請貼入素材搜尋詞", true); return }
+    try {
+      notify("正在套用搜尋詞…")
+      state.project = await api.setQueries(state.project.id, queries)
+      state.results = await api.searchAll(state.project.id, selectedSources())
+      renderProject()
+      notify("搜尋完成；每幕候選素材已收合，可自行展開")
+    } catch (err) { notify(err.message, true) }
+  })
+  $("#preflight-check").addEventListener("click", async () => {
+    try {
+      const report = await runPreflight()
+      if (report) notify(report.ready ? "輸出前檢查通過" : "已列出缺漏 Scene", !report.ready)
+    } catch (err) { notify(err.message, true) }
+  })
+  $("#make-preview").addEventListener("click", async () => {
+    if (!needProject()) return
+    try {
+      notify("正在產生粗剪預覽…"); await api.preview(state.project.id)
+      $("#open-preview").href = api.previewUrl(state.project.id)
+      $("#open-preview").classList.remove("disabled"); notify("粗剪預覽完成")
+    } catch (err) { notify(err.message, true) }
+  })
+  $("#export-jianying").addEventListener("click", async () => {
+    if (!needProject()) return
+    try {
+      const report = await runPreflight()
+      if (!report?.ready) {
+        notify("輸出前檢查未通過，請先補齊上方列出的 Scene", true)
+        return
+      }
+      notify("正在建立剪映草稿…")
+      const result = await api.exportJianying(state.project.id, state.project.name)
+      notify(`剪映草稿「${result.draft_name}」已建立`)
+    } catch (err) { notify(err.message, true) }
+  })
+}
+
+async function start() {
+  bindTabs(); bindProjectActions(); bindSideMenu(); bindWorkflow()
+  bindSceneEvents({ notify, refreshProject, refreshLibrary, openLibrary })
+  bindLibrary({ notify, refreshProject })
+  bindSettings({ notify })
+  try { await Promise.all([loadSettings(), loadProjects()]) }
+  catch (err) { notify(err.message, true) }
+}
+
+start()

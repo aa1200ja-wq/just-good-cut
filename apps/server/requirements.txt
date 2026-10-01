@@ -1,0 +1,10 @@
+fastapi>=0.115,<1
+uvicorn[standard]>=0.32,<1
+httpx>=0.28,<1
+python-multipart>=0.0.20,<1
+pydantic>=2.10,<3
+pydantic-settings>=2.7,<3
+edge-tts>=7,<8
+pyJianYingDraft>=0.3,<1
+imageio-ffmpeg>=0.6,<1
+mutagen>=1.47,<2

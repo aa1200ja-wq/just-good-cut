@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>B-roll Workflow</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <strong>B-roll Workflow</strong>
+        <small>旁白 → 素材 → 剪映草稿</small>
+      </div>
+      <div class="side-menu">
+        <button id="side-search-external" class="side-action">搜尋外部素材</button>
+        <button id="side-library" class="side-action">素材庫</button>
+        <button id="side-upload" class="side-action">加入本機素材</button>
+        <input id="global-upload" type="file" accept="video/*,image/*" multiple hidden />
+      </div>
+      <details id="project-manager" class="project-manager">
+        <summary id="project-manager-summary">專案管理</summary>
+        <div class="create-project">
+          <input id="new-project-name" placeholder="新專案名稱" />
+          <button id="create-project">新增</button>
+        </div>
+        <div id="project-list" class="project-list"></div>
+        <div class="project-tools">
+          <button id="rename-project" class="ghost">重新命名</button>
+          <button id="delete-project" class="danger">刪除專案</button>
+        </div>
+      </details>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h1 id="project-title">請建立專案</h1>
+          <small id="project-meta"></small>
+          <div class="format-row">
+            <label>畫面比例
+              <select id="project-format">
+                <option value="16:9">16:9 橫式</option>
+                <option value="9:16">9:16 直式</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <nav class="tabs">
+          <button class="tab active" data-tab="work">製作</button>
+          <button class="tab" data-tab="library">素材庫</button>
+          <button class="tab" data-tab="settings">設定</button>
+        </nav>
+      </header>
+
+      <section id="work-panel" class="tab-panel">
+        <div class="panel">
+          <div class="panel-head"><h2>1. 旁白腳本</h2><span id="scene-count"></span></div>
+          <textarea id="script" class="large" placeholder="一次貼上完整旁白稿"></textarea>
+          <button id="split-script">依標點切成 Scene</button>
+        </div>
+
+        <div class="panel">
+          <h2>2. 產生旁白＋時間碼</h2>
+          <div class="grid-5">
+            <label>聲音<input id="voice" value="zh-TW-YunJheNeural" /></label>
+            <label>語速<input id="rate" value="+0%" /></label>
+            <label>音調<input id="pitch" value="+0Hz" /></label>
+            <label>節奏
+              <select id="rhythm">
+                <option value="natural">自然</option>
+                <option value="fast">快切</option>
+              </select>
+            </label>
+            <button id="make-tts" class="primary">產生旁白＋時間碼</button>
+          </div>
+          <p class="hint">快切模式會去掉每句旁白前後多餘靜音，短句會更緊湊；不會截掉說話內容。</p>
+        </div>
+
+        <div class="panel">
+          <h2>3. 批次搜尋素材</h2>
+          <textarea id="bulk-queries" class="medium"
+            placeholder="每行一組搜尋詞，依序對應 Scene 1、2、3……"></textarea>
+          <div class="toolbar wrap">
+            <label class="check"><input type="checkbox" value="pexels" class="source" checked /> Pexels</label>
+            <label class="check"><input type="checkbox" value="pixabay" class="source" checked /> Pixabay</label>
+            <label class="check"><input type="checkbox" value="wikimedia" class="source" checked /> Wikimedia</label>
+            <button id="search-all" class="primary">套用並搜尋全部素材</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>4. Scene 與候選素材</h2>
+            <span>每幕可重搜、上傳或改用素材庫</span>
+          </div>
+          <div id="scene-list"></div>
+        </div>
+
+        <div class="panel">
+          <h2>5. 輸出</h2>
+          <div class="toolbar wrap">
+            <button id="preflight-check">輸出前檢查</button>
+            <button id="make-preview">產生粗剪預覽</button>
+            <a id="open-preview" class="button-link disabled" target="_blank">開啟粗剪</a>
+            <button id="export-jianying" class="primary">建立剪映草稿</button>
+          </div>
+          <div id="preflight-result" class="preflight-result hidden"></div>
+          <p class="hint">輸出前檢查會逐幕確認素材、時間碼與旁白；剪映草稿輸出也會自動再檢查一次。</p>
+        </div>
+      </section>
+
+      <section id="library-panel" class="tab-panel hidden">
+        <div class="panel">
+          <div class="panel-head"><h2>全域素材庫</h2><span>所有專案共用；搜尋 Scene 時會優先顯示本機素材</span></div>
+          <div class="toolbar">
+            <input id="library-query" placeholder="搜尋：海浪、ocean、coast…" />
+            <button id="library-search">搜尋</button>
+            <select id="library-scene"></select>
+          </div>
+          <div class="toolbar library-tools">
+            <label class="compact-label">標籤篩選
+              <select id="library-tag-filter"><option value="">全部標籤</option></select>
+            </label>
+            <details class="tag-manager">
+              <summary>標籤管理</summary>
+              <div class="tag-manager-body">
+                <select id="tag-manager-select"><option value="">選擇標籤</option></select>
+                <input id="tag-rename-input" placeholder="新的標籤名稱" />
+                <button id="rename-tag">重新命名</button>
+                <button id="delete-tag" class="danger">刪除標籤</button>
+              </div>
+            </details>
+          </div>
+          <div id="library-grid" class="card-grid"></div>
+        </div>
+      </section>
+
+      <section id="settings-panel" class="tab-panel hidden">
+        <div class="panel settings-grid">
+          <div>
+            <h2>素材 API</h2>
+            <label>Pexels API Key<input id="pexels-key" type="password" placeholder="未修改" /></label>
+            <label>Pixabay API Key<input id="pixabay-key" type="password" placeholder="未修改" /></label>
+            <button id="save-api-keys">儲存 API Key</button>
+            <p id="api-status" class="hint"></p>
+          </div>
+          <div>
+            <h2>剪映草稿位置</h2>
+            <label>草稿資料夾<input id="jianying-dir" placeholder="例如 D:\JianyingPro Drafts" /></label>
+            <div class="toolbar wrap">
+              <button id="detect-jianying">自動偵測</button>
+              <button id="save-jianying" class="primary">儲存位置</button>
+            </div>
+            <p class="hint">也可從剪映「全域設定 → 草稿位置」複製路徑。</p>
+          </div>
+          <div>
+            <h2>素材庫位置</h2>
+            <label>共用素材庫資料夾
+              <input id="material-library-dir" placeholder="例如 D:\Broll素材庫" />
+            </label>
+            <button id="save-material-library" class="primary">搬移並使用這個位置</button>
+            <p id="material-library-status" class="hint"></p>
+            <p class="hint">下載素材、本機加入素材、標籤索引都會放在這裡；變更時會自動複製既有素材並更新路徑。</p>
+          </div>
+        </div>
+      </section>
+
+      <div id="toast" class="toast hidden"></div>
+    </main>
+  </div>
+  <script type="module" src="/main.js"></script>
+</body>
+</html>
