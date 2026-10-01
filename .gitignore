@@ -1,0 +1,14 @@
+.env
+.venv/
+node_modules/
+__pycache__/
+*.pyc
+projects/
+cache/
+exports/
+*.mp4
+*.mp3
+*.wav
+*.mov
+*.mkv
+.DS_Store
