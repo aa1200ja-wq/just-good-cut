@@ -153,6 +153,40 @@ def test_scene_clip_is_longer_than_scene_and_preview_has_subtitles():
     assert final.exists() and final.stat().st_size > 0
 
 
+def test_final_render_with_fade_transition():
+    project = Project(
+        id="fade-final-test", name="fade-final",
+        scenes=[
+            Scene(
+                id="S001", order=1, narration="第一幕",
+                start=0, end=0.6, transition="fade",
+            ),
+            Scene(
+                id="S002", order=2, narration="第二幕",
+                start=0.6, end=1.2,
+            ),
+        ],
+    )
+    source = settings.assets_path / "fade-source.mp4"
+    _video(source, 0.3)
+    for scene in project.scenes:
+        scene.selected_asset = str(source)
+        scene.selected_asset_type = "video"
+    projects.save_project(project)
+    base = projects.project_path(project.id)
+    run_ffmpeg([
+        "-y", "-f", "lavfi", "-i", "sine=frequency=440:duration=1.2",
+        "-q:a", "5", str(base / "audio" / "narration.mp3"),
+    ])
+    (base / "subtitles" / "narration.srt").write_text(
+        "1\n00:00:00,000 --> 00:00:00,600\n第一幕\n\n"
+        "2\n00:00:00,600 --> 00:00:01,200\n第二幕\n",
+        encoding="utf-8",
+    )
+    final = final_render.build_final(project)
+    assert final.exists() and final.stat().st_size > 0
+
+
 def test_jianying_three_tracks_with_short_source():
     project = projects.load_project("preview-test")
     draft_root = Path(tempfile.mkdtemp(prefix="jianying-drafts-"))
