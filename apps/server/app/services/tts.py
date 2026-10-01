@@ -5,6 +5,13 @@ from app.services.ffmpeg_utils import run_ffmpeg
 from app.services.projects import project_path, save_project
 
 
+SUPPORTED_VOICES = {
+    "zh-TW-YunJheNeural": "台灣男聲｜雲哲",
+    "zh-TW-HsiaoChenNeural": "台灣女聲｜曉臻",
+    "zh-TW-HsiaoYuNeural": "台灣女聲｜曉雨",
+}
+
+
 def _duration(path: Path) -> float:
     try:
         from mutagen.mp3 import MP3
@@ -38,6 +45,8 @@ def _tighten_audio(source: Path, target: Path) -> None:
 async def synthesize(
     project: Project, voice: str, rate: str, pitch: str, rhythm: str = "natural"
 ) -> Project:
+    if voice not in SUPPORTED_VOICES:
+        raise ValueError("目前只支援揪好剪內建的 3 個台灣中文聲音")
     try:
         import edge_tts
     except ImportError as exc:
