@@ -32,6 +32,10 @@ def test_web_ui_project_admin_and_format():
     assert "台灣男聲｜雲哲" in home
     assert "台灣女聲｜曉臻" in home
     assert "台灣女聲｜曉雨" in home
+    assert 'data-step-target="1"' in home
+    assert 'data-step-target="5"' in home
+    assert 'id="editor-preview"' in home
+    assert "預覽與微調" in home
     project = client.post("/api/projects", json={"name": "原名"}).json()
     renamed = client.put(
         f"/api/projects/{project['id']}/name", json={"name": "新名"}
