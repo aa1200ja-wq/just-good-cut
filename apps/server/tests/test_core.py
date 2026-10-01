@@ -12,7 +12,7 @@ from app.config import settings
 from app.main import app
 from app.models import MaterialAsset, Project, Scene, SearchResult
 from app.routes import search as search_route
-from app.services import jianying, library, preview, projects, tts
+from app.services import final_render, jianying, library, preview, projects, tts
 from app.services.ffmpeg_utils import run_ffmpeg
 
 client = TestClient(app)
@@ -27,7 +27,11 @@ def _video(path: Path, seconds: float = 0.25):
 
 def test_web_ui_project_admin_and_format():
     assert client.get("/api/health").status_code == 200
-    assert "B-roll Workflow" in client.get("/").text
+    home = client.get("/").text
+    assert "揪好剪" in home
+    assert "台灣男聲｜雲哲" in home
+    assert "台灣女聲｜曉臻" in home
+    assert "台灣女聲｜曉雨" in home
     project = client.post("/api/projects", json={"name": "原名"}).json()
     renamed = client.put(
         f"/api/projects/{project['id']}/name", json={"name": "新名"}
@@ -135,6 +139,18 @@ def test_scene_clip_is_longer_than_scene_and_preview_has_subtitles():
     assert draft.VideoMaterial(str(clips[0])).duration >= 1_017_000
     out = preview.build_preview(project)
     assert out.exists() and out.stat().st_size > 0
+
+    bgm = base / "audio" / "bgm.mp3"
+    run_ffmpeg([
+        "-y", "-f", "lavfi", "-i", "sine=frequency=220:duration=1.5",
+        "-q:a", "5", str(bgm),
+    ])
+    project.bgm_path = str(bgm)
+    project.bgm_volume = 0.12
+    project.bgm_ducking = True
+    projects.save_project(project)
+    final = final_render.build_final(project)
+    assert final.exists() and final.stat().st_size > 0
 
 
 def test_jianying_three_tracks_with_short_source():
