@@ -5,13 +5,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 def _data_dir() -> Path:
-    override = os.getenv("BROLL_DATA_DIR")
+    override = os.getenv("JUST_GOOD_CUT_DATA_DIR") or os.getenv("BROLL_DATA_DIR")
     if override:
         path = Path(override)
     elif os.name == "nt" and os.getenv("LOCALAPPDATA"):
-        path = Path(os.environ["LOCALAPPDATA"]) / "BrollWorkflow"
+        path = Path(os.environ["LOCALAPPDATA"]) / "JustGoodCut"
     else:
-        path = Path.home() / ".broll-workflow"
+        path = Path.home() / ".just-good-cut"
     path.mkdir(parents=True, exist_ok=True)
     return path.resolve()
 
