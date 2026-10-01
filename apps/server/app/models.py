@@ -15,6 +15,9 @@ class Scene(BaseModel):
     source_name: str | None = None
     source_url: str | None = None
     status: str = "waiting"
+    asset_in: float = 0.0
+    asset_out: float = 0.0
+    transition: Literal["none", "fade"] = "none"
 
     @property
     def duration(self) -> float:
@@ -29,6 +32,9 @@ class Project(BaseModel):
     rate: str = "+0%"
     pitch: str = "+0Hz"
     rhythm: Literal["natural", "fast"] = "natural"
+    bgm_path: str | None = None
+    bgm_volume: float = 0.18
+    bgm_ducking: bool = True
     width: int = 1920
     height: int = 1080
     scenes: list[Scene] = Field(default_factory=list)
@@ -54,6 +60,9 @@ class SceneUpdateRequest(BaseModel):
     narration: str | None = None
     search_query: str | None = None
     rhythm: Literal["inherit", "natural", "fast"] | None = None
+    asset_in: float | None = None
+    asset_out: float | None = None
+    transition: Literal["none", "fade"] | None = None
 
 
 class BulkQueriesRequest(BaseModel):
@@ -73,6 +82,15 @@ class TTSRequest(BaseModel):
     rate: str = "+0%"
     pitch: str = "+0Hz"
     rhythm: Literal["natural", "fast"] = "natural"
+
+
+class BGMSettingsRequest(BaseModel):
+    volume: float = 0.18
+    ducking: bool = True
+
+
+class FinalRenderRequest(BaseModel):
+    burn_subtitles: bool = True
 
 
 class SearchResult(BaseModel):
