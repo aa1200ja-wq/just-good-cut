@@ -1,5 +1,6 @@
 import { api } from "./api.js"
 import { state, selectedSources } from "./state.js"
+import { clipEditorMarkup, initClipEditor } from "./clip_editor.js"
 
 let activeAudio = null
 const expandedCandidates = new Set()
@@ -66,26 +67,7 @@ function sceneCard(scene) {
           <input data-action="upload" type="file" accept="video/*,image/*" hidden />
         </label>
       </div>
-      <details class="scene-edit">
-        <summary>剪輯設定</summary>
-        <div class="scene-edit-grid">
-          <label>素材開始
-            <input data-field="asset_in" type="number" min="0" step="0.1"
-              value="${Number(scene.asset_in || 0).toFixed(1)}" />
-          </label>
-          <label>素材結束
-            <input data-field="asset_out" type="number" min="0" step="0.1"
-              value="${Number(scene.asset_out || 0).toFixed(1)}" />
-          </label>
-          <label>接下一幕
-            <select data-field="transition">
-              <option value="none" ${(scene.transition || "none") === "none" ? "selected" : ""}>直接切</option>
-              <option value="fade" ${scene.transition === "fade" ? "selected" : ""}>淡化轉場</option>
-            </select>
-          </label>
-        </div>
-        <p class="hint compact-hint">素材結束填 0 代表自動延伸到這幕結束。</p>
-      </details>
+      ${clipEditorMarkup(scene)}
       <div class="scene-actions">
         <button class="ghost" data-action="play-audio">▶ 播放旁白</button>
         <button class="ghost" data-action="split">拆分</button>
@@ -173,6 +155,12 @@ export function bindSceneEvents({ notify, refreshProject, refreshLibrary }) {
   })
 
   root.addEventListener("toggle", event => {
+    const clipDetails = event.target.closest("details[data-clip-editor]")
+    if (clipDetails?.open) {
+      const card = clipDetails.closest(".scene")
+      initClipEditor(clipDetails, card, saveScene, notify)
+    }
+
     const details = event.target.closest("details[data-candidates]")
     if (!details) return
     const key = sceneKey(details.dataset.candidates)
