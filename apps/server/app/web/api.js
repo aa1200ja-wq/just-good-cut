@@ -74,6 +74,10 @@ export const api = {
   finalUrl: id => `/api/projects/${id}/final-file?t=${Date.now()}`,
   sceneAudioUrl: (id, sceneId) =>
     `/api/projects/${id}/scenes/${sceneId}/audio?t=${Date.now()}`,
+  sceneAssetUrl: (id, sceneId) =>
+    `/api/projects/${id}/scenes/${sceneId}/asset-file`,
+  sceneThumbUrl: (id, sceneId, time) =>
+    `/api/projects/${id}/scenes/${sceneId}/asset-thumbnail?time=${encodeURIComponent(time)}`,
   preflight: id => request(`/api/projects/${id}/preflight`),
   exportJianying: (id, name) => request(
     `/api/projects/${id}/export/jianying`, json({ draft_folder: "", draft_name: name })),
