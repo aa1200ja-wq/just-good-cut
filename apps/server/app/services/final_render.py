@@ -15,15 +15,7 @@ def _escaped_subtitle_path(path: Path) -> str:
 def _build_visual_track(project: Project) -> Path:
     base = project_path(project.id)
     export_dir = base / "exports"
-    clips = []
-
-    for index, scene in enumerate(project.scenes):
-        extra = (
-            TRANSITION_SECONDS
-            if index < len(project.scenes) - 1 and scene.transition == "fade"
-            else 0.0
-        )
-        clips.append(_clip_for_scene(project, scene, safety_pad=extra))
+    clips = [_clip_for_scene(project, scene, safety_pad=0.0) for scene in project.scenes]
 
     if not clips:
         raise RuntimeError("沒有可輸出的 Scene")
@@ -46,36 +38,32 @@ def _build_visual_track(project: Project) -> Path:
         inputs.extend(["-i", str(clip)])
 
     filters = []
-    for index in range(len(clips)):
-        filters.append(
-            f"[{index}:v]fps=30,settb=AVTB,setpts=PTS-STARTPTS[src{index}]"
-        )
-
-    current = "src0"
-    elapsed = 0.0
-    for index in range(1, len(clips)):
-        previous = project.scenes[index - 1]
-        elapsed += previous.duration
-        raw = f"mix{index}"
-        out = f"v{index}"
-        if previous.transition == "fade":
-            filters.append(
-                f"[{current}][src{index}]"
-                f"xfade=transition=fade:duration={TRANSITION_SECONDS:.3f}:"
-                f"offset={elapsed:.3f}[{raw}]"
+    labels = []
+    last_index = len(project.scenes) - 1
+    for index, scene in enumerate(project.scenes):
+        duration = max(0.1, scene.duration)
+        fade_duration = min(TRANSITION_SECONDS, max(0.05, duration / 2))
+        chain = f"[{index}:v]fps=30,settb=1/30,setpts=N"
+        if index > 0 and project.scenes[index - 1].transition == "fade":
+            chain += f",fade=t=in:st=0:d={fade_duration:.3f}"
+        if index < last_index and scene.transition == "fade":
+            fade_start = max(0.0, duration - fade_duration)
+            chain += (
+                f",fade=t=out:st={fade_start:.3f}:"
+                f"d={fade_duration:.3f}"
             )
-        else:
-            filters.append(
-                f"[{current}][src{index}]concat=n=2:v=1:a=0[{raw}]"
-            )
-        filters.append(f"[{raw}]fps=30,settb=AVTB,setpts=PTS-STARTPTS[{out}]")
-        current = out
+        label = f"v{index}"
+        filters.append(f"{chain}[{label}]")
+        labels.append(f"[{label}]")
 
+    filters.append(
+        "".join(labels) + f"concat=n={len(labels)}:v=1:a=0[outv]"
+    )
     run_ffmpeg([
         "-y", *inputs,
         "-filter_complex", ";".join(filters),
-        "-map", f"[{current}]",
-        "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p",
+        "-map", "[outv]",
+        "-an", "-r", "30", "-c:v", "libx264", "-pix_fmt", "yuv420p",
         str(silent),
     ])
     return silent
