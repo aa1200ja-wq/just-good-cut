@@ -10,6 +10,7 @@ from app.models import (
     SceneUpdateRequest, ScriptRequest, SplitSceneRequest, TTSRequest,
 )
 from app.services import final_render, jianying, library, media, preflight, preview, projects, search, tts
+from app.services.ffmpeg_utils import run_ffmpeg
 
 router = APIRouter(prefix="/api")
 
@@ -297,6 +298,42 @@ async def upload(project_id: str, scene_id: str, file: UploadFile = File(...)):
         raise HTTPException(400, str(exc)) from exc
     except Exception as exc:
         raise HTTPException(500, f"加入本機素材失敗：{exc}") from exc
+
+
+@router.get("/projects/{project_id}/scenes/{scene_id}/asset-file")
+def scene_asset_file(project_id: str, scene_id: str):
+    project = _load(project_id)
+    scene = _scene(project, scene_id)
+    path = Path(scene.selected_asset) if scene.selected_asset else None
+    if not path or not path.exists():
+        raise HTTPException(404, "這一幕尚未選擇素材")
+    return FileResponse(path)
+
+
+@router.get("/projects/{project_id}/scenes/{scene_id}/asset-thumbnail")
+def scene_asset_thumbnail(project_id: str, scene_id: str, time: float = 0.0):
+    project = _load(project_id)
+    scene = _scene(project, scene_id)
+    path = Path(scene.selected_asset) if scene.selected_asset else None
+    if not path or not path.exists():
+        raise HTTPException(404, "這一幕尚未選擇素材")
+    if scene.selected_asset_type != "video":
+        return FileResponse(path)
+
+    moment = max(0.0, float(time))
+    thumb_dir = projects.project_path(project_id) / "exports" / "thumbs"
+    thumb_dir.mkdir(parents=True, exist_ok=True)
+    target = thumb_dir / f"{scene_id}-{round(moment * 1000):08d}.jpg"
+    if not target.exists():
+        try:
+            run_ffmpeg([
+                "-y", "-ss", f"{moment:.3f}", "-i", str(path),
+                "-frames:v", "1", "-vf", "scale=240:-2",
+                "-q:v", "3", str(target),
+            ])
+        except Exception as exc:
+            raise HTTPException(500, f"縮圖產生失敗：{exc}") from exc
+    return FileResponse(target, media_type="image/jpeg")
 
 
 @router.post("/projects/{project_id}/preview")
