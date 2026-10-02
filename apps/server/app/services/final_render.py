@@ -46,20 +46,29 @@ def _build_visual_track(project: Project) -> Path:
         inputs.extend(["-i", str(clip)])
 
     filters = []
-    current = "0:v"
+    for index in range(len(clips)):
+        filters.append(
+            f"[{index}:v]fps=30,settb=AVTB,setpts=PTS-STARTPTS[src{index}]"
+        )
+
+    current = "src0"
     elapsed = 0.0
     for index in range(1, len(clips)):
         previous = project.scenes[index - 1]
         elapsed += previous.duration
+        raw = f"mix{index}"
         out = f"v{index}"
         if previous.transition == "fade":
             filters.append(
-                f"[{current}][{index}:v]"
+                f"[{current}][src{index}]"
                 f"xfade=transition=fade:duration={TRANSITION_SECONDS:.3f}:"
-                f"offset={elapsed:.3f}[{out}]"
+                f"offset={elapsed:.3f}[{raw}]"
             )
         else:
-            filters.append(f"[{current}][{index}:v]concat=n=2:v=1:a=0[{out}]")
+            filters.append(
+                f"[{current}][src{index}]concat=n=2:v=1:a=0[{raw}]"
+            )
+        filters.append(f"[{raw}]fps=30,settb=AVTB,setpts=PTS-STARTPTS[{out}]")
         current = out
 
     run_ffmpeg([
