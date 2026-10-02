@@ -191,6 +191,59 @@ def test_final_render_with_fade_transition():
     assert final.exists() and final.stat().st_size > 0
 
 
+def test_final_render_direct_cut_then_fade_transition():
+    project = Project(
+        id="mixed-transition-test", name="mixed-transition",
+        scenes=[
+            Scene(id="S001", order=1, narration="一", start=0, end=0.5, transition="none"),
+            Scene(id="S002", order=2, narration="二", start=0.5, end=1.0, transition="fade"),
+            Scene(id="S003", order=3, narration="三", start=1.0, end=1.5),
+        ],
+    )
+    source = settings.assets_path / "mixed-transition-source.mp4"
+    _video(source, 0.35)
+    for scene in project.scenes:
+        scene.selected_asset = str(source)
+        scene.selected_asset_type = "video"
+    projects.save_project(project)
+
+    base = projects.project_path(project.id)
+    run_ffmpeg([
+        "-y", "-f", "lavfi", "-i", "sine=frequency=440:duration=1.5",
+        "-q:a", "5", str(base / "audio" / "narration.mp3"),
+    ])
+    (base / "subtitles" / "narration.srt").write_text(
+        "1\n00:00:00,000 --> 00:00:00,500\n一\n\n"
+        "2\n00:00:00,500 --> 00:00:01,000\n二\n\n"
+        "3\n00:00:01,000 --> 00:00:01,500\n三\n",
+        encoding="utf-8",
+    )
+    final = final_render.build_final(project)
+    assert final.exists() and final.stat().st_size > 0
+
+
+def test_scene_video_preview_and_thumbnail_endpoints():
+    project = Project(
+        id="clip-preview-test", name="clip-preview",
+        scenes=[Scene(id="S001", order=1, narration="測試", start=0, end=0.5)],
+    )
+    source = settings.assets_path / "clip-preview-source.mp4"
+    _video(source, 0.8)
+    project.scenes[0].selected_asset = str(source)
+    project.scenes[0].selected_asset_type = "video"
+    projects.save_project(project)
+
+    asset = client.get(f"/api/projects/{project.id}/scenes/S001/asset-file")
+    assert asset.status_code == 200
+    assert asset.headers["content-type"].startswith("video/")
+
+    thumb = client.get(
+        f"/api/projects/{project.id}/scenes/S001/asset-thumbnail?time=0.2"
+    )
+    assert thumb.status_code == 200
+    assert thumb.headers["content-type"].startswith("image/jpeg")
+
+
 def test_jianying_three_tracks_with_short_source():
     project = projects.load_project("preview-test")
     draft_root = Path(tempfile.mkdtemp(prefix="jianying-drafts-"))
